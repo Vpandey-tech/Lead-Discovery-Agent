@@ -1,0 +1,695 @@
+{
+  "name": "LinkedIn Outreach Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "LinkedIn Outreach - Lead Request",
+        "formDescription": "Fill karein: country, position, leads count aur profile/industry keyword.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Country",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Number of Leads",
+              "fieldType": "number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Position",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "CP"
+                  },
+                  {
+                    "option": "CSO"
+                  },
+                  {
+                    "option": "CA"
+                  },
+                  {
+                    "option": "Other"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Industry / Profile Keyword",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4c7f0ac5-eaa5-4edd-ba7c-7ecda774ac52",
+      "name": "LinkedIn Outreach Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -608,
+        496
+      ],
+      "webhookId": "62be8dee-63e4-40ff-a38a-c77137acbc01"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "country",
+              "type": "string",
+              "value": "={{ $json['Country'] }}"
+            },
+            {
+              "id": "a2",
+              "name": "leadsCount",
+              "type": "number",
+              "value": "={{ Number($json['Number of Leads']) }}"
+            },
+            {
+              "id": "a3",
+              "name": "position",
+              "type": "string",
+              "value": "={{ $json['Position'] }}"
+            },
+            {
+              "id": "a4",
+              "name": "profileKeyword",
+              "type": "string",
+              "value": "={{ $json['Industry / Profile Keyword'] }}"
+            },
+            {
+              "id": "a5",
+              "name": "searchQuery",
+              "type": "string",
+              "value": "={{ $json['Position'] }} {{ $json['Industry / Profile Keyword'] }} in {{ $json['Country'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "299ca297-0c5e-49a3-96ae-7c0090f27475",
+      "name": "Structure Query",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -384,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_APIFY_ACTOR_ID/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"searchQueries\": [$json.searchQuery], \"country\": $json.country, \"maxItems\": $json.leadsCount }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "6bc3f30e-45f0-4bb6-8d84-862dfbb605d3",
+      "name": "Apify - Scrape LinkedIn Profiles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        496
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "31MkdloZnDWSBtTU",
+          "name": "apify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Apify se aaya raw data leke required leadsCount tak leads ko structured format mein convert karo\nconst leadsCount = $('Structure Query').first().json.leadsCount;\nconst country = $('Structure Query').first().json.country;\nconst position = $('Structure Query').first().json.position;\n\nconst rawItems = items.map(i => i.json).slice(0, leadsCount);\n\nreturn rawItems.map(profile => ({\n  json: {\n    name: profile.fullName || profile.name || '',\n    designation: profile.headline || position,\n    company: profile.companyName || profile.company || '',\n    location: profile.location || country,\n    profileUrl: profile.profileUrl || profile.url || '',\n    email: profile.email || '',\n    phone: profile.phone || '',\n    country: country,\n    status: 'New',\n    addedAt: new Date().toISOString()\n  }\n}));"
+      },
+      "id": "88cb65dc-5f1a-4c85-bfdc-dfc20d749c37",
+      "name": "Process & Limit Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "1eea5b3d-abdc-4d7f-ade5-f0faf9fd28bf",
+      "name": "Save Leads to Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        288,
+        496
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "glOaWAIwOdcBiRD4",
+          "name": "automation guru"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a246fe00-54cc-4cb7-ba49-3c152fbfeb66",
+      "name": "Loop Over Leads (Outreach)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        512,
+        496
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "058b65da-a481-4965-a11d-f5e9a66817b0",
+      "name": "All Leads Contacted",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        800,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are B2B Cold Outreach Specialist for Technewity Labs.\nTechnewity Labs provides:\n1. Custom Website Development & Web Applications\n2. AI Solutions & Custom AI Agents\n3. Workflow & Business Process Automation\n\nDraft a short, highly personalized, professional cold outreach email for this prospect.\n--- LEAD INFO ---\nName: {{ $json.name }}\nDesignation/Title: {{ $json.designation }}\nCompany: {{ $json.company }}\nCountry: {{ $json.country }}\n\nReturn STRICT JSON ONLY in this exact structure:\n{\n  \"subject\": \"Quick question regarding {{ $json.company }}'s web & AI stack\",\n  \"body\": \"Hi {{ $json.name }},\n\nI noticed your work as {{ $json.designation }} at {{ $json.company }}.\n\nAt Technewity Labs, we help companies build modern, high-converting websites and custom AI automation workflows to streamline operations.\n\nWould you be open to a quick 10-minute chat next week to see how we could support {{ $json.company }}?\n\nBest regards,\nTechnewity Team\"\n}",
+        "options": {
+          "systemMessage": "You are a professional B2B outreach specialist for Technewity Labs (Website Development & AI Solutions). Always return valid JSON only."
+        }
+      },
+      "id": "a5111cbf-56d9-498f-ab55-1fe1498c6cd3",
+      "name": "Email Agent - Draft Message",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        736,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Agent ke output se JSON safely parse karo\nconst raw = $json.output || $json.text || '';\nlet parsed = { subject: 'Quick intro', body: raw };\ntry {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  if (match) parsed = JSON.parse(match[0]);\n} catch (e) {\n  // fallback: raw text hi body ban jayega\n}\nreturn [{ json: { ...$('Loop Over Leads (Outreach)').item.json, emailSubject: parsed.subject, emailBody: parsed.body } }];"
+      },
+      "id": "280694e1-77e9-4e83-89c1-380dc0ad3bce",
+      "name": "Parse Email Draft",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        496
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.emailSubject }}",
+        "message": "={{ $json.emailBody }}",
+        "options": {}
+      },
+      "id": "b08b2402-afea-4037-be5d-11453afa1637",
+      "name": "Send Outreach Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1312,
+        496
+      ],
+      "webhookId": "454020b3-9e52-4f4d-aa58-a6e9809ad5ce",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CnvMTIj4KMB9tnsO",
+          "name": "automation guru"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_LINKEDIN_AUTOMATION_API/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ profileUrl: $json.profileUrl, message: `Hi ${$json.name}, ${$json.emailBody.split('.')[0]}. Would love to connect!` }) }}",
+        "options": {}
+      },
+      "id": "4cc3f43c-e418-4a7c-8c9f-d838043352c2",
+      "name": "Send LinkedIn Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1536,
+        496
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ByCOBS7hfrfSAlnF",
+          "name": "Header Auth account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "d28ae60e-a240-4cf3-bd0b-77a85a9ce300",
+      "name": "Update Status - Contacted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        608
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "glOaWAIwOdcBiRD4",
+          "name": "automation guru"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "calendarId": {
+          "__rl": true,
+          "value": "devdabi32@gmail.com",
+          "mode": "list",
+          "cachedResultName": "devdabi32@gmail.com"
+        },
+        "triggerOn": "eventCreated",
+        "options": {}
+      },
+      "id": "a2660872-9cb1-4cad-a3a0-9aafad9da989",
+      "name": "New Calendar Event Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        928
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "EJDUzbXE3vNjBtIn",
+          "name": "automation guru"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.description }}",
+              "rightValue": "Qualified Lead",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1bd1efd4-45d8-4f56-99bd-931ce533d778",
+      "name": "Is Qualified Meeting?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -384,
+        928
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "73fd006c-a08f-45f0-8ac3-996b88403834",
+      "name": "Not Qualified - Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_LIVEKIT_CALL_AGENT/trigger-call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ attendeeEmail: $json.attendees && $json.attendees[0] ? $json.attendees[0].email : '', meetingTime: $json.start && $json.start.dateTime, purpose: 'meeting_confirmation' }) }}",
+        "options": {}
+      },
+      "id": "1fe0b679-8968-4696-ba88-03f7f2d32417",
+      "name": "LiveKit - Trigger Confirmation Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        832
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ByCOBS7hfrfSAlnF",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "abb9f54a-52fc-4d95-9de9-fee7448fa912",
+      "name": "Update Status - Meeting Confirmed",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        64,
+        832
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "glOaWAIwOdcBiRD4",
+          "name": "automation guru"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "modelName": "llama-3.3-70b-versatile",
+        "model": "llama-3.3-70b-versatile"
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        816,
+        720
+      ],
+      "id": "4c66fcfc-21a5-4600-8694-137a0642df55",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "u0nHo6VY2B3ci6x1",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "node-exec-wf-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        450
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "LinkedIn Outreach Form": {
+      "main": [
+        [
+          {
+            "node": "Structure Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Query": {
+      "main": [
+        [
+          {
+            "node": "Apify - Scrape LinkedIn Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Scrape LinkedIn Profiles": {
+      "main": [
+        [
+          {
+            "node": "Process & Limit Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Limit Leads": {
+      "main": [
+        [
+          {
+            "node": "Save Leads to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Leads to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Leads (Outreach)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Leads (Outreach)": {
+      "main": [
+        [
+          {
+            "node": "All Leads Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Agent - Draft Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Agent - Draft Message": {
+      "main": [
+        [
+          {
+            "node": "Parse Email Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Email Draft": {
+      "main": [
+        [
+          {
+            "node": "Send Outreach Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Outreach Email": {
+      "main": [
+        [
+          {
+            "node": "Send LinkedIn Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send LinkedIn Message": {
+      "main": [
+        [
+          {
+            "node": "Update Status - Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Status - Contacted": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Leads (Outreach)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Calendar Event Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Qualified Meeting?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Qualified Meeting?": {
+      "main": [
+        [
+          {
+            "node": "LiveKit - Trigger Confirmation Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Qualified - Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LiveKit - Trigger Confirmation Call": {
+      "main": [
+        [
+          {
+            "node": "Update Status - Meeting Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Email Agent - Draft Message",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Save Leads to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1a899d0c-0afb-47f7-9c43-9ca0f933e56e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a02d9dd75e1472dd34ea6f0c2292e56e4c7f5268b29c8bd11d1743eeb468f68a"
+  },
+  "nodeGroups": [],
+  "id": "01nLnGem1DJEkvjs",
+  "tags": []
+}

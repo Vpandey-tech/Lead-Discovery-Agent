@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkedIn Outreach Agent — Live Workflow Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0F1C;
+    --bg-grid: #0D1322;
+    --surface: #111830;
+    --surface-2: #161F3B;
+    --surface-3: #1C2647;
+    --border: #253158;
+    --border-soft: #1A2340;
+    --text: #E9EDFB;
+    --text-dim: #93A0C4;
+    --text-faint: #5C6890;
+    --amber: #F5A623;
+    --amber-soft: rgba(245,166,35,0.14);
+    --teal: #2DD4BF;
+    --teal-soft: rgba(45,212,191,0.14);
+    --violet: #9B8CFF;
+    --violet-soft: rgba(155,140,255,0.14);
+    --blue: #5FA8FF;
+    --blue-soft: rgba(95,168,255,0.14);
+    --rose: #FB7185;
+    --rose-soft: rgba(251,113,133,0.14);
+    --slate: #8592B4;
+    --slate-soft: rgba(133,146,180,0.14);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(155,140,255,0.10), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(45,212,191,0.08), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  h1,h2,h3,h4{ font-family:'Space Grotesk', 'Inter', sans-serif; margin:0; letter-spacing:-0.01em; }
+  .mono{ font-family:'JetBrains Mono', monospace; }
+  a{ color: var(--teal); }
+
+  :focus-visible{ outline: 2px solid var(--teal); outline-offset: 2px; border-radius: 4px; }
+
+  /* ---------- Layout shell ---------- */
+  .app{ max-width: 1500px; margin: 0 auto; padding: 20px 20px 80px; }
+
+  .navbar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; padding:14px 20px; margin-bottom:20px;
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border:1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand-mark{
+    width:38px;height:38px;border-radius:10px;
+    background: conic-gradient(from 220deg, var(--violet), var(--teal), var(--amber), var(--violet));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700; font-family:'Space Grotesk';
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 6px 18px rgba(155,140,255,0.25);
+  }
+  .brand-text .name{ font-size:16px; font-weight:700; }
+  .brand-text .sub{ font-size:12px; color: var(--text-dim); font-family:'JetBrains Mono'; }
+
+  .status-pill{
+    display:flex; align-items:center; gap:8px;
+    padding:7px 14px; border-radius:999px; border:1px solid var(--border);
+    background: var(--surface-3); font-size:13px; font-weight:600;
+  }
+  .status-pill .dot{ width:8px;height:8px;border-radius:50%; background:var(--slate); }
+  .status-pill.running .dot{ background: var(--amber); animation: pulse 1.1s infinite; }
+  .status-pill.done .dot{ background: var(--teal); }
+
+  .tech-strip{
+    display:flex; flex-wrap:wrap; gap:8px; margin: -6px 0 20px;
+  }
+  .tech-chip{
+    font-family:'JetBrains Mono'; font-size:11.5px; color: var(--text-dim);
+    background: var(--surface); border:1px solid var(--border-soft);
+    padding:5px 10px; border-radius:999px;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap:18px;
+    align-items:start;
+  }
+  @media (max-width: 1100px){
+    .grid{ grid-template-columns: 1fr; }
+    .col-form, .col-log{ position: static !important; }
+  }
+
+  .card{
+    background: linear-gradient(180deg, var(--surface), var(--surface-2));
+    border:1px solid var(--border); border-radius: var(--radius);
+    padding:18px; box-shadow: var(--shadow);
+  }
+  .card h3{ font-size:14px; text-transform:uppercase; letter-spacing:0.06em; color: var(--text-dim); margin-bottom:14px; }
+
+  /* ---------- Form ---------- */
+  .col-form{ position: sticky; top:20px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color: var(--text-dim); margin-bottom:6px; font-weight:600; }
+  .field .hint{ font-size:11px; color: var(--text-faint); margin-top:5px; }
+  select, input[type=text], input[type=number]{
+    width:100%; padding:10px 12px; border-radius: var(--radius-sm);
+    background: var(--bg); border:1px solid var(--border);
+    color: var(--text); font-size:14px; font-family:'Inter';
+  }
+  select:focus, input:focus{ border-color: var(--teal); }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; padding:12px 16px; border-radius: var(--radius-sm); border:none;
+    font-weight:700; font-size:14px; cursor:pointer; transition: transform .12s ease, box-shadow .12s ease;
+    font-family:'Space Grotesk';
+  }
+  .btn:active{ transform: scale(0.98); }
+  .btn-primary{ background: linear-gradient(135deg, var(--amber), #ffcf7a); color:#241300; box-shadow: 0 6px 20px rgba(245,166,35,0.25); }
+  .btn-primary:hover{ box-shadow: 0 8px 26px rgba(245,166,35,0.4); }
+  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; box-shadow:none; }
+  .btn-ghost{ background: var(--surface-3); color: var(--text); border:1px solid var(--border); }
+  .btn-ghost:hover{ border-color: var(--teal); }
+  .btn-small{ width:auto; padding:8px 12px; font-size:12.5px; }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; }
+  .switch{ position:relative; width:40px; height:22px; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; inset:0; background: var(--surface-3); border:1px solid var(--border); border-radius:999px; cursor:pointer; transition:.15s; }
+  .slider:before{ content:""; position:absolute; width:16px; height:16px; left:2px; top:2px; background: var(--text-dim); border-radius:50%; transition:.15s; }
+  .switch input:checked + .slider{ background: var(--teal-soft); border-color: var(--teal); }
+  .switch input:checked + .slider:before{ transform: translateX(18px); background: var(--teal); }
+
+  /* ---------- Lanes / steps ---------- */
+  .lane-header{ display:flex; align-items:center; gap:10px; margin: 4px 0 12px; }
+  .lane-header h2{ font-size:17px; }
+  .lane-header .lane-desc{ font-size:12px; color: var(--text-faint); font-family:'JetBrains Mono'; }
+  .lane-icon{ font-size:18px; }
+
+  .pipeline{ display:flex; flex-direction:column; gap:10px; margin-bottom:26px; }
+
+  .step{
+    background: var(--surface); border:1px solid var(--border-soft); border-radius: var(--radius);
+    border-left: 3px solid var(--slate);
+    overflow:hidden; transition: border-color .2s ease, background .2s ease;
+  }
+  .step[data-cat="trigger"]{ border-left-color: var(--blue); }
+  .step[data-cat="transform"]{ border-left-color: var(--teal); }
+  .step[data-cat="action"]{ border-left-color: var(--amber); }
+  .step[data-cat="ai"]{ border-left-color: var(--violet); }
+  .step[data-cat="logic"]{ border-left-color: var(--slate); }
+
+  .step.running{ background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(245,166,35,0.25); }
+  .step.done{ }
+  .step.skipped{ opacity:0.6; }
+
+  .step-main{
+    display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer;
+  }
+  .step-main:hover{ background: rgba(255,255,255,0.02); }
+
+  .status-dot{
+    width:10px; height:10px; border-radius:50%; background: var(--slate); flex:0 0 auto;
+    box-shadow: 0 0 0 3px rgba(133,146,180,0.12);
+  }
+  .step.running .status-dot{ background: var(--amber); box-shadow:0 0 0 4px rgba(245,166,35,0.22); animation: pulse 1s infinite; }
+  .step.done .status-dot{ background: var(--teal); box-shadow:0 0 0 4px rgba(45,212,191,0.18); }
+  .step.skipped .status-dot{ background: var(--rose); box-shadow:0 0 0 4px rgba(251,113,133,0.16); }
+
+  .step-icon{ font-size:18px; width:22px; text-align:center; flex:0 0 auto; }
+  .step-text{ flex:1; min-width:0; }
+  .step-name{ font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .step-sub{ font-size:12px; color: var(--text-faint); margin-top:2px; }
+  .node-type{ font-family:'JetBrains Mono'; font-size:10.5px; color: var(--text-faint); }
+
+  .type-badge{
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+    padding:2px 7px; border-radius:5px;
+  }
+  .type-badge.trigger{ background: var(--blue-soft); color: var(--blue); }
+  .type-badge.transform{ background: var(--teal-soft); color: var(--teal); }
+  .type-badge.action{ background: var(--amber-soft); color: var(--amber); }
+  .type-badge.ai{ background: var(--violet-soft); color: var(--violet); }
+  .type-badge.logic{ background: var(--slate-soft); color: var(--slate); }
+
+  .chev{ color: var(--text-faint); transition: transform .18s ease; flex:0 0 auto; }
+  .step.open .chev{ transform: rotate(180deg); }
+
+  .step-body{ display:none; padding: 0 14px 16px 46px; border-top:1px solid var(--border-soft); }
+  .step.open .step-body{ display:block; padding-top:12px; }
+
+  .tabs{ display:flex; gap:6px; margin-bottom:10px; }
+  .tab{ background:none; border:1px solid var(--border); color: var(--text-dim); font-size:11.5px; padding:5px 10px; border-radius:999px; cursor:pointer; font-family:'JetBrains Mono'; }
+  .tab.active{ background: var(--surface-3); color: var(--text); border-color: var(--teal); }
+
+  .kv{ display:grid; grid-template-columns: 130px 1fr; gap:6px 12px; font-size:13px; }
+  .kv .k{ color: var(--text-faint); }
+  .kv .v{ color: var(--text); word-break: break-word; }
+
+  pre.jsonview{
+    background: var(--bg); border:1px solid var(--border-soft); border-radius: var(--radius-sm);
+    padding:12px; font-family:'JetBrains Mono'; font-size:12px; color: #B9E3DC;
+    overflow-x:auto; margin:0; max-height:280px; overflow-y:auto;
+  }
+  .jsonview .k{ color:#8FB8FF; }
+  .jsonview .s{ color:#B9E3DC; }
+  .jsonview .n{ color:#F5A623; }
+
+  .note{
+    display:flex; gap:8px; align-items:flex-start; font-size:12px; color: var(--text-dim);
+    background: var(--violet-soft); border:1px solid rgba(155,140,255,0.3); border-radius: var(--radius-sm);
+    padding:9px 11px; margin-top:10px;
+  }
+
+  .subnode{
+    display:flex; align-items:center; gap:8px; margin: 8px 0 0 20px; padding: 6px 10px;
+    border:1px dashed var(--border); border-radius:999px; width:fit-content;
+    font-family:'JetBrains Mono'; font-size:11px; color: var(--text-faint);
+  }
+  .subnode .status-dot{ width:7px; height:7px; }
+
+  .loop-box{
+    border:1px dashed var(--violet); border-radius: var(--radius); padding:14px; background: rgba(155,140,255,0.04);
+  }
+  .loop-box .loop-title{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+  .loop-box .loop-title h4{ font-size:13px; color: var(--violet); display:flex; align-items:center; gap:6px; }
+
+  .lead-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .lead-chip{
+    font-family:'JetBrains Mono'; font-size:11px; padding:5px 9px; border-radius:7px;
+    background: var(--surface-3); border:1px solid var(--border); color: var(--text-faint);
+  }
+  .lead-chip.running{ border-color: var(--amber); color: var(--amber); }
+  .lead-chip.done{ border-color: var(--teal); color: var(--teal); }
+
+  .branch-label{
+    font-family:'JetBrains Mono'; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:700;
+  }
+  .branch-label.true{ background: var(--teal-soft); color: var(--teal); }
+  .branch-label.false{ background: var(--rose-soft); color: var(--rose); }
+
+  .connector{ display:flex; justify-content:center; color: var(--text-faint); font-size:13px; margin: -4px 0; }
+
+  /* ---------- Log panel ---------- */
+  .col-log{ position: sticky; top:20px; }
+  .log-feed{ display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow-y:auto; }
+  .log-line{ font-family:'JetBrains Mono'; font-size:11.5px; color: var(--text-dim); display:flex; gap:8px; }
+  .log-line .t{ color: var(--text-faint); flex:0 0 auto; }
+  .log-line.ok .m{ color: var(--teal); }
+  .log-line.info .m{ color: var(--text); }
+  .log-line.warn .m{ color: var(--rose); }
+  .log-empty{ font-size:12.5px; color: var(--text-faint); font-style:italic; }
+
+  /* ---------- Sheet table ---------- */
+  .sheet-section{ margin-top:26px; }
+  .sheet-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius: var(--radius); }
+  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:920px; }
+  thead th{
+    text-align:left; padding:10px 12px; background: var(--surface-3); color: var(--text-dim);
+    font-size:11px; text-transform:uppercase; letter-spacing:0.04em; position:sticky; top:0;
+    border-bottom:1px solid var(--border);
+  }
+  tbody td{ padding:10px 12px; border-bottom:1px solid var(--border-soft); color: var(--text); }
+  tbody tr:hover{ background: rgba(255,255,255,0.02); }
+  .status-badge{ padding:3px 9px; border-radius:999px; font-size:11px; font-weight:700; }
+  .status-badge.New{ background: var(--slate-soft); color: var(--slate); }
+  .status-badge.Contacted{ background: var(--amber-soft); color: var(--amber); }
+  .status-badge.Meeting-Confirmed{ background: var(--teal-soft); color: var(--teal); }
+  .sheet-empty{ padding:30px; text-align:center; color: var(--text-faint); font-size:13px; }
+  .row-fresh{ animation: flashrow 1.2s ease; }
+
+  /* ---------- Calendar section ---------- */
+  .cal-controls{ display:grid; grid-template-columns: 1fr 1fr auto; gap:12px; align-items:end; margin-bottom:18px; }
+  @media (max-width: 720px){ .cal-controls{ grid-template-columns: 1fr; } }
+
+  footer.hint-foot{ text-align:center; color: var(--text-faint); font-size:12px; margin-top:40px; font-family:'JetBrains Mono'; }
+
+  @keyframes pulse{ 0%{opacity:1;} 50%{opacity:.35;} 100%{opacity:1;} }
+  @keyframes flashrow{ 0%{ background: rgba(45,212,191,0.18);} 100%{ background: transparent; } }
+  .typing-dots span{ animation: blink 1.2s infinite; }
+  .typing-dots span:nth-child(2){ animation-delay:.2s; }
+  .typing-dots span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="navbar">
+    <div class="brand">
+      <div class="brand-mark">Z2P</div>
+      <div class="brand-text">
+        <div class="name">LinkedIn Outreach Agent</div>
+        <div class="sub">n8n workflow · live preview · Zero to Pro Automation</div>
+      </div>
+    </div>
+    <div id="statusPill" class="status-pill"><span class="dot"></span><span id="statusText">Idle</span></div>
+  </div>
+
+  <div class="tech-strip">
+    <span class="tech-chip">18 nodes</span>
+    <span class="tech-chip">2 triggers</span>
+    <span class="tech-chip">Apify</span>
+    <span class="tech-chip">Groq · llama-3.3-70b-versatile</span>
+    <span class="tech-chip">Google Sheets</span>
+    <span class="tech-chip">Gmail</span>
+    <span class="tech-chip">Google Calendar</span>
+    <span class="tech-chip">LiveKit</span>
+    <span class="tech-chip">All data on this page is simulated demo data — no real APIs are called</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ LEFT: FORM ============ -->
+    <div class="col-form">
+      <div class="card">
+        <h3>Trigger · LinkedIn Outreach Form</h3>
+        <div class="field">
+          <label for="f-country">Country</label>
+          <select id="f-country">
+            <option value="India">India</option>
+            <option value="United States">United States</option>
+            <option value="United Kingdom">United Kingdom</option>
+            <option value="United Arab Emirates">United Arab Emirates</option>
+            <option value="Canada">Canada</option>
+            <option value="Australia">Australia</option>
+            <option value="Germany">Germany</option>
+            <option value="Singapore">Singapore</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-leads">Number of Leads</label>
+          <input type="number" id="f-leads" min="1" max="8" value="3">
+          <div class="hint">Demo caps at 8 leads for a smooth walkthrough — production workflow supports any count.</div>
+        </div>
+        <div class="field">
+          <label for="f-position">Position</label>
+          <select id="f-position">
+            <option value="CP">CP</option>
+            <option value="CSO" selected>CSO</option>
+            <option value="CA">CA</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-keyword">Industry / Profile Keyword</label>
+          <input type="text" id="f-keyword" value="Real Estate" placeholder="e.g. Real Estate">
+        </div>
+        <button class="btn btn-primary" id="startBtn" onclick="startOutreach()">▶ Start Outreach</button>
+        <div style="height:8px"></div>
+        <button class="btn btn-ghost" onclick="resetDemo()">↺ Reset demo</button>
+      </div>
+    </div>
+
+    <!-- ============ CENTER: PIPELINE ============ -->
+    <div class="col-main">
+
+      <div class="lane-header">
+        <span class="lane-icon">🚀</span>
+        <div>
+          <h2>Outreach Pipeline</h2>
+          <div class="lane-desc">triggered by the form above</div>
+        </div>
+      </div>
+
+      <div class="pipeline" id="laneA"></div>
+
+      <div class="lane-header">
+        <span class="lane-icon">📅</span>
+        <div>
+          <h2>Meeting Confirmation Pipeline</h2>
+          <div class="lane-desc">independent trigger — polls Google Calendar every minute for new events</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <h3 style="margin-bottom:12px;">Simulate a calendar event</h3>
+        <div class="cal-controls">
+          <div class="field" style="margin:0;">
+            <label for="cal-lead">Meeting attendee</label>
+            <select id="cal-lead"></select>
+          </div>
+          <div class="field" style="margin:0;">
+            <div class="toggle-row">
+              <span style="font-size:13px;">Description contains "Qualified Lead"</span>
+              <label class="switch"><input type="checkbox" id="cal-qualified" checked><span class="slider"></span></label>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-small" onclick="simulateCalendarEvent()">📅 Fire Calendar Event</button>
+        </div>
+      </div>
+
+      <div class="pipeline" id="laneB"></div>
+
+      <div class="sheet-section card">
+        <h3>Google Sheet · "Leads" tab (live)</h3>
+        <div class="sheet-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Name</th><th>Designation</th><th>Company</th><th>Location</th>
+                <th>Email</th><th>Phone</th><th>Profile</th><th>Status</th><th>Added At</th>
+              </tr>
+            </thead>
+            <tbody id="sheetBody">
+              <tr><td colspan="10" class="sheet-empty">No leads yet — fill the form and hit "Start Outreach" to populate this sheet in real time.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <footer class="hint-foot">Click any executed step above to inspect its exact input/output data · Preview vs raw JSON</footer>
+    </div>
+
+    <!-- ============ RIGHT: LOG ============ -->
+    <div class="col-log">
+      <div class="card">
+        <h3>Execution Log</h3>
+        <div class="log-feed" id="logFeed">
+          <div class="log-empty">Waiting for a trigger…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   MOCK "BACKEND" — mirrors the real n8n workflow's node logic exactly,
+   so every field shown here is what the real workflow would actually
+   compute, just generated locally instead of calling live services.
+   ========================================================================= */
+
+const REGIONS = {
+  india: { match:['india','bharat'], firstNames:['Aarav','Priya','Rohan','Ananya','Vikram','Neha','Karan','Ishita','Aditya','Sneha','Arjun','Divya'], lastNames:['Sharma','Verma','Iyer','Nair','Patel','Reddy','Gupta','Malhotra','Chatterjee','Rao'], cities:['Bengaluru, India','Mumbai, India','Delhi NCR, India','Pune, India','Hyderabad, India'], code:'+91' },
+  usa: { match:['united states','usa','america'], firstNames:['James','Emily','Michael','Sarah','David','Jessica','Daniel','Ashley','Ryan','Lauren'], lastNames:['Johnson','Williams','Miller','Davis','Brown','Wilson','Anderson','Thomas','Clark'], cities:['New York, USA','Austin, USA','San Francisco, USA','Chicago, USA','Seattle, USA'], code:'+1' },
+  uk: { match:['united kingdom','england','britain'], firstNames:['Oliver','Amelia','George','Charlotte','Harry','Isla','Jack','Grace','Thomas','Freya'], lastNames:['Smith','Taylor','Evans','Wright','Walker','Robinson','Hughes','Green','Turner'], cities:['London, UK','Manchester, UK','Birmingham, UK','Leeds, UK'], code:'+44' },
+  uae: { match:['emirates','dubai','abu dhabi'], firstNames:['Omar','Fatima','Khalid','Layla','Hamdan','Maryam','Youssef','Noor'], lastNames:['Al Farsi','Hassan','Al Suwaidi','Rashid','Al Nahyan'], cities:['Dubai, UAE','Abu Dhabi, UAE','Sharjah, UAE'], code:'+971' },
+  global: { match:[], firstNames:['Alex','Mia','Chris','Sofia','Sam','Elena','Leo','Nina','Marco','Yuki'], lastNames:['Muller','Dubois','Rossi','Kim','Nakamura','Silva','Andersen','Novak'], cities:['Singapore','Toronto, Canada','Berlin, Germany','Sydney, Australia'], code:'+65' }
+};
+
+function resolveRegion(countryInput){
+  const c = (countryInput||'').toLowerCase();
+  for(const key in REGIONS){
+    if(key==='global') continue;
+    if(REGIONS[key].match.some(m=>c.includes(m))) return REGIONS[key];
+  }
+  return REGIONS.global;
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function randDigits(n){ let s=''; for(let i=0;i<n;i++) s+= Math.floor(Math.random()*10); return s; }
+function randHex(n){ const c='0123456789abcdef'; let s=''; for(let i=0;i<n;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
+function titleCase(s){ return String(s||'').replace(/\w\S*/g, t=> t[0].toUpperCase()+t.slice(1).toLowerCase()); }
+
+const DESIGNATION_MAP = { 'CP':'Channel Partner Manager', 'CSO':'Chief Sales Officer', 'CA':'Chartered Accountant' };
+function resolveDesignation(position, keyword){
+  if(DESIGNATION_MAP[position]) return DESIGNATION_MAP[position];
+  return titleCase(keyword||'Business') + ' Lead';
+}
+
+const COMPANY_TEMPLATES = ['{kw} Solutions','{kw} Technologies','Bright {kw} Group','{kw} Dynamics','NextGen {kw}','{kw} Partners','Prime {kw} Co.','{kw} Innovations','Elite {kw} Enterprises','{kw} Global'];
+function makeCompany(keyword){
+  const kw = titleCase(keyword||'Business');
+  return pick(COMPANY_TEMPLATES).replace('{kw}', kw);
+}
+
+// mirrors "Apify - Scrape LinkedIn Profiles" raw output shape
+function makeRawProfile(region, position, keyword){
+  const first = pick(region.firstNames), last = pick(region.lastNames);
+  const company = makeCompany(keyword);
+  const companySlug = company.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return {
+    fullName: first + ' ' + last,
+    headline: resolveDesignation(position, keyword),
+    companyName: company,
+    location: pick(region.cities),
+    profileUrl: 'https://www.linkedin.com/in/' + first.toLowerCase() + '-' + last.toLowerCase() + '-' + randHex(4),
+    email: first.toLowerCase() + '.' + last.toLowerCase() + '@' + companySlug + '.com',
+    phone: region.code + ' ' + randDigits(5) + ' ' + randDigits(5)
+  };
+}
+
+// mirrors "Process & Limit Leads" code node exactly
+function processLead(raw, country){
+  return {
+    name: raw.fullName || '',
+    designation: raw.headline || '',
+    company: raw.companyName || '',
+    location: raw.location || country,
+    profileUrl: raw.profileUrl || '',
+    email: raw.email || '',
+    phone: raw.phone || '',
+    country: country,
+    status: 'New',
+    addedAt: new Date().toISOString()
+  };
+}
+
+const OPENERS = ["Hope you're doing well","Came across your profile and had to reach out","Noticed your work at {company} and wanted to connect","Quick note before your day gets busy"];
+const VALUE_PROPS = [
+  "We help teams like yours at {company} automate manual workflows end-to-end using AI + no-code, cutting hours of repetitive work every week",
+  "We've been helping {designation}s in {country} save 10+ hours a week by automating lead gen, outreach and reporting with AI agents",
+  "Given your role as {designation} at {company}, our AI automation systems (LinkedIn outreach, CRM sync, reporting) could save your team real time"
+];
+const CTAS = ["Open to a quick 15-min call this week to see if it's a fit?","Would a short call make sense to explore this further?","Happy to share a 2-min demo — got 15 minutes this week?"];
+const SUBJECTS = ["Quick idea for {company}","Automating {designation} workflows at {company}","15 mins for {firstname}?","Saving time at {company}"];
+
+function fill(tpl, lead){
+  return tpl.replace('{company}', lead.company).replace('{designation}', lead.designation).replace('{country}', lead.country).replace('{firstname}', lead.name.split(' ')[0]);
+}
+
+// mirrors "Email Agent - Draft Message" (Groq) -> "Parse Email Draft" output shape
+function draftEmail(lead){
+  const first = lead.name.split(' ')[0];
+  const opener = fill(pick(OPENERS), lead);
+  const value = fill(pick(VALUE_PROPS), lead);
+  const cta = pick(CTAS);
+  const subject = fill(pick(SUBJECTS), lead);
+  const body = 'Hi ' + first + ',\n\n' + opener + '. ' + value + '.\n\n' + cta + '\n\nBest,\nDev Dabi\nZero to Pro Automation';
+  return { subject, body };
+}
+
+// mirrors "Send LinkedIn Message" HTTP node's jsonBody expression EXACTLY:
+// `Hi ${$json.name}, ${$json.emailBody.split('.')[0]}. Would love to connect!`
+function draftLinkedInMessage(lead, emailBody){
+  const firstSentence = emailBody.split('.')[0];
+  return 'Hi ' + lead.name + ', ' + firstSentence + '. Would love to connect!';
+}
+
+/* =========================================================================
+   WORKFLOW DEFINITION — mirrors the uploaded n8n JSON node-for-node
+   ========================================================================= */
+
+const LANE_A_STEPS = [
+  { id:'form', name:'LinkedIn Outreach Form', type:'n8n-nodes-base.formTrigger', cat:'trigger', icon:'📝', sub:'Fills Country, Number of Leads, Position, Industry/Profile Keyword' },
+  { id:'structure', name:'Structure Query', type:'n8n-nodes-base.set', cat:'transform', icon:'🧩', sub:'Builds country, leadsCount, position, profileKeyword, searchQuery' },
+  { id:'apify', name:'Apify - Scrape LinkedIn Profiles', type:'n8n-nodes-base.httpRequest', cat:'action', icon:'🌐', sub:'POST run-sync-get-dataset-items to the configured Apify actor' },
+  { id:'process', name:'Process & Limit Leads', type:'n8n-nodes-base.code', cat:'transform', icon:'🛠️', sub:'Normalizes raw items to leadsCount clean lead records' },
+  { id:'savesheet', name:'Save Leads to Sheet', type:'n8n-nodes-base.googleSheets (append)', cat:'transform', icon:'📊', sub:'Appends every lead to the "Leads" tab, status = New' },
+  { id:'loop', name:'Loop Over Leads (Outreach)', type:'n8n-nodes-base.splitInBatches', cat:'logic', icon:'🔁', sub:'Processes one lead at a time through the steps below' },
+  { id:'allcontacted', name:'All Leads Contacted', type:'n8n-nodes-base.noOp', cat:'logic', icon:'🏁', sub:'Fires once every lead in this batch has been processed' }
+];
+
+const LOOP_STEPS = [
+  { id:'emailagent', name:'Email Agent - Draft Message', type:'@n8n/n8n-nodes-langchain.agent', cat:'ai', icon:'🤖', sub:'Groq LLM drafts a personalized subject + body as JSON' },
+  { id:'parsedraft', name:'Parse Email Draft', type:'n8n-nodes-base.code', cat:'transform', icon:'🧵', sub:'Safely parses the agent JSON and merges it onto the lead' },
+  { id:'sendemail', name:'Send Outreach Email', type:'n8n-nodes-base.gmail', cat:'action', icon:'📧', sub:"Sends the drafted email to the lead's address" },
+  { id:'sendli', name:'Send LinkedIn Message', type:'n8n-nodes-base.httpRequest', cat:'action', icon:'💬', sub:"Posts a connection message built from the email's first line" },
+  { id:'updatecontacted', name:'Update Status - Contacted', type:'n8n-nodes-base.googleSheets (update)', cat:'transform', icon:'✅', sub:'Matches by profileUrl, sets status = Contacted' }
+];
+
+const LANE_B_STEPS = [
+  { id:'caltrigger', name:'New Calendar Event Trigger', type:'n8n-nodes-base.googleCalendarTrigger', cat:'trigger', icon:'📅', sub:'Polls every minute for eventCreated on devdabi32@gmail.com' },
+  { id:'isqualified', name:'Is Qualified Meeting?', type:'n8n-nodes-base.if', cat:'logic', icon:'❓', sub:'Checks if event.description contains "Qualified Lead"' },
+  { id:'livekit', name:'LiveKit - Trigger Confirmation Call', type:'n8n-nodes-base.httpRequest', cat:'action', icon:'📞', sub:'True branch — queues an outbound confirmation call' },
+  { id:'notqualified', name:'Not Qualified - Skip', type:'n8n-nodes-base.noOp', cat:'logic', icon:'⏭️', sub:'False branch — no action taken' },
+  { id:'updatemeeting', name:'Update Status - Meeting Confirmed', type:'n8n-nodes-base.googleSheets (update)', cat:'transform', icon:'📌', sub:'Matches by email, sets status = Meeting Confirmed' }
+];
+
+/* =========================================================================
+   STATE + RENDERING
+   ========================================================================= */
+
+let sheetRows = [];   // the "Google Sheet" state
+let running = false;
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function syntaxHighlight(json){
+  const str = JSON.stringify(json, null, 2);
+  return escapeHtml(str)
+    .replace(/(&quot;.*?&quot;)(:)/g, '<span class="k">$1</span>$2')
+    .replace(/: (&quot;.*?&quot;)/g, ': <span class="s">$1</span>')
+    .replace(/: (-?\d+(\.\d+)?)/g, ': <span class="n">$1</span>');
+}
+
+function renderStepRow(step){
+  return '' +
+  '<div class="step" data-cat="' + step.cat + '" id="step-' + step.id + '">' +
+    '<div class="step-main" onclick="toggleStep(\'' + step.id + '\')">' +
+      '<span class="status-dot"></span>' +
+      '<span class="step-icon">' + step.icon + '</span>' +
+      '<div class="step-text">' +
+        '<div class="step-name">' + escapeHtml(step.name) + ' <span class="type-badge ' + step.cat + '">' + step.cat + '</span></div>' +
+        '<div class="step-sub">' + escapeHtml(step.sub) + '</div>' +
+        '<div class="node-type">' + escapeHtml(step.type) + '</div>' +
+      '</div>' +
+      '<span class="chev">▾</span>' +
+    '</div>' +
+    (step.id === 'emailagent' ? '<div class="subnode"><span class="status-dot" id="dot-groq"></span>⚙ Groq Chat Model · llama-3.3-70b-versatile</div>' : '') +
+    '<div class="step-body" id="body-' + step.id + '"></div>' +
+  '</div>';
+}
+
+function initRender(){
+  document.getElementById('laneA').innerHTML =
+    LANE_A_STEPS.slice(0,5).map(renderStepRow).join(arrow()) +
+    arrow() +
+    '<div class="loop-box">' +
+      '<div class="loop-title"><h4>🔁 Loop Over Leads (Outreach) — repeats per lead</h4><div class="lead-chips" id="leadChips"></div></div>' +
+      '<div class="pipeline">' + LOOP_STEPS.map(renderStepRow).join(loopArrow()) + '</div>' +
+    '</div>' +
+    arrow() +
+    renderStepRow(LANE_A_STEPS[6]);
+
+  document.getElementById('laneB').innerHTML =
+    renderStepRow(LANE_B_STEPS[0]) + arrow() +
+    renderStepRow(LANE_B_STEPS[1]) +
+    '<div style="display:flex; gap:16px; margin-left:20px;">' +
+      '<div style="flex:1;"><div class="connector"><span class="branch-label true">✓ TRUE</span></div>' + renderStepRow(LANE_B_STEPS[2]) + arrow() + renderStepRow(LANE_B_STEPS[4]) + '</div>' +
+      '<div style="flex:1;"><div class="connector"><span class="branch-label false">✕ FALSE</span></div>' + renderStepRow(LANE_B_STEPS[3]) + '</div>' +
+    '</div>';
+
+  refreshSheet();
+  refreshCalLeadOptions();
+}
+function arrow(){ return '<div class="connector">↓</div>'; }
+function loopArrow(){ return '<div class="connector">↓</div>'; }
+
+function setStatus(id, status){
+  const el = document.getElementById('step-' + id);
+  if(!el) return;
+  el.classList.remove('idle','running','done','skipped');
+  el.classList.add(status);
+  if(id === 'emailagent'){
+    const dot = document.getElementById('dot-groq');
+    if(dot) dot.style.background = status === 'running' ? 'var(--amber)' : (status === 'done' ? 'var(--teal)' : 'var(--slate)');
+  }
+}
+
+function setOutput(id, previewHtml, jsonObj){
+  const body = document.getElementById('body-' + id);
+  if(!body) return;
+  body.innerHTML =
+    '<div class="tabs">' +
+      '<button class="tab active" onclick="switchTab(this,\'' + id + '\',\'preview\')">Preview</button>' +
+      '<button class="tab" onclick="switchTab(this,\'' + id + '\',\'json\')">JSON</button>' +
+    '</div>' +
+    '<div class="tabpane" data-pane="preview">' + previewHtml + '</div>' +
+    '<div class="tabpane" data-pane="json" style="display:none;"><pre class="jsonview">' + syntaxHighlight(jsonObj) + '</pre></div>';
+}
+
+function switchTab(btn, id, which){
+  const body = document.getElementById('body-' + id);
+  body.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  body.querySelectorAll('.tabpane').forEach(p => p.style.display = (p.dataset.pane === which ? 'block' : 'none'));
+}
+
+function toggleStep(id){
+  const el = document.getElementById('step-' + id);
+  if(!el || !el.querySelector('.step-body').innerHTML) return; // nothing to show yet
+  el.classList.toggle('open');
+}
+
+function log(msg, kind){
+  const feed = document.getElementById('logFeed');
+  if(feed.querySelector('.log-empty')) feed.innerHTML = '';
+  const t = new Date().toLocaleTimeString();
+  const line = document.createElement('div');
+  line.className = 'log-line ' + (kind || 'info');
+  line.innerHTML = '<span class="t">' + t + '</span><span class="m">' + escapeHtml(msg) + '</span>';
+  feed.prepend(line);
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+function setGlobalStatus(status){
+  const pill = document.getElementById('statusPill');
+  const text = document.getElementById('statusText');
+  pill.classList.remove('running','done');
+  if(status === 'running'){ pill.classList.add('running'); text.textContent = 'Running'; }
+  else if(status === 'done'){ pill.classList.add('done'); text.textContent = 'Completed'; }
+  else{ text.textContent = 'Idle'; }
+}
+
+/* =========================================================================
+   SHEET RENDERING
+   ========================================================================= */
+
+function statusClass(s){ return s.replace(/\s+/g,'-'); }
+
+function refreshSheet(){
+  const tbody = document.getElementById('sheetBody');
+  if(sheetRows.length === 0){
+    tbody.innerHTML = '<tr><td colspan="10" class="sheet-empty">No leads yet — fill the form and hit "Start Outreach" to populate this sheet in real time.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sheetRows.map((r, i) => (
+    '<tr id="row-' + i + '">' +
+      '<td>' + (i+1) + '</td>' +
+      '<td>' + escapeHtml(r.name) + '</td>' +
+      '<td>' + escapeHtml(r.designation) + '</td>' +
+      '<td>' + escapeHtml(r.company) + '</td>' +
+      '<td>' + escapeHtml(r.location) + '</td>' +
+      '<td>' + escapeHtml(r.email) + '</td>' +
+      '<td>' + escapeHtml(r.phone) + '</td>' +
+      '<td><a href="' + r.profileUrl + '" target="_blank" rel="noopener">View ↗</a></td>' +
+      '<td><span class="status-badge ' + statusClass(r.status) + '">' + escapeHtml(r.status) + '</span></td>' +
+      '<td>' + new Date(r.addedAt).toLocaleString() + '</td>' +
+    '</tr>'
+  )).join('');
+}
+
+function flashRow(i){
+  const row = document.getElementById('row-' + i);
+  if(row){ row.classList.remove('row-fresh'); void row.offsetWidth; row.classList.add('row-fresh'); }
+}
+
+function refreshCalLeadOptions(){
+  const sel = document.getElementById('cal-lead');
+  if(sheetRows.length === 0){
+    sel.innerHTML = '<option value="-1">Demo Lead (no leads processed yet)</option>';
+    return;
+  }
+  sel.innerHTML = sheetRows.map((r,i) => '<option value="' + i + '">' + escapeHtml(r.name) + ' — ' + escapeHtml(r.company) + '</option>').join('');
+}
+
+/* =========================================================================
+   ORCHESTRATION — Lane A (Outreach)
+   ========================================================================= */
+
+async function startOutreach(){
+  if(running) return;
+  running = true;
+  document.getElementById('startBtn').disabled = true;
+  setGlobalStatus('running');
+
+  const country = document.getElementById('f-country').value;
+  const leadsCount = Math.max(1, Math.min(8, parseInt(document.getElementById('f-leads').value || '3', 10)));
+  const position = document.getElementById('f-position').value;
+  const keyword = document.getElementById('f-keyword').value.trim() || 'Business';
+  const region = resolveRegion(country);
+
+  // 1. Form Trigger
+  setStatus('form','running'); log('Form submitted — starting outreach run', 'info');
+  await sleep(400);
+  const formOutput = { Country: country, 'Number of Leads': leadsCount, Position: position, 'Industry / Profile Keyword': keyword };
+  setOutput('form',
+    '<div class="kv"><span class="k">Country</span><span class="v">' + escapeHtml(country) + '</span>' +
+    '<span class="k">Number of Leads</span><span class="v">' + leadsCount + '</span>' +
+    '<span class="k">Position</span><span class="v">' + escapeHtml(position) + '</span>' +
+    '<span class="k">Industry / Profile Keyword</span><span class="v">' + escapeHtml(keyword) + '</span></div>',
+    formOutput);
+  setStatus('form','done'); log('Form Trigger fired', 'ok');
+
+  // 2. Structure Query
+  setStatus('structure','running'); await sleep(500);
+  const searchQuery = position + ' ' + keyword + ' in ' + country;
+  const structureOutput = { country, leadsCount, position, profileKeyword: keyword, searchQuery };
+  setOutput('structure',
+    '<div class="kv"><span class="k">searchQuery</span><span class="v mono">' + escapeHtml(searchQuery) + '</span></div>',
+    structureOutput);
+  setStatus('structure','done'); log('Structure Query → "' + searchQuery + '"', 'ok');
+
+  // 3. Apify scrape
+  setStatus('apify','running'); log('Calling Apify actor (run-sync-get-dataset-items)…', 'info');
+  await sleep(1300);
+  const rawProfiles = [];
+  for(let i=0;i<leadsCount;i++) rawProfiles.push(makeRawProfile(region, position, keyword));
+  setOutput('apify',
+    '<div class="kv"><span class="k">profiles returned</span><span class="v">' + rawProfiles.length + '</span></div>' +
+    '<div style="margin-top:8px; font-size:12px; color:var(--text-faint);">Raw dataset item sample:</div>',
+    rawProfiles);
+  setStatus('apify','done'); log('Apify returned ' + rawProfiles.length + ' raw profiles', 'ok');
+
+  // 4. Process & Limit Leads
+  setStatus('process','running'); await sleep(500);
+  const processed = rawProfiles.map(p => processLead(p, country));
+  setOutput('process',
+    '<div class="kv"><span class="k">leads normalized</span><span class="v">' + processed.length + '</span></div>',
+    processed);
+  setStatus('process','done'); log('Normalized ' + processed.length + ' leads (status = New)', 'ok');
+
+  // 5. Save Leads to Sheet
+  setStatus('savesheet','running'); await sleep(600);
+  processed.forEach(p => sheetRows.push(Object.assign({}, p)));
+  refreshSheet(); refreshCalLeadOptions();
+  setOutput('savesheet',
+    '<div class="kv"><span class="k">rows appended</span><span class="v">' + processed.length + '</span><span class="k">sheet tab</span><span class="v">Leads</span></div>',
+    { appended: processed.length, sheet: 'Leads' });
+  setStatus('savesheet','done'); log('Appended ' + processed.length + ' rows to Google Sheet "Leads"', 'ok');
+
+  // 6. Loop Over Leads
+  setStatus('loop','running');
+  const chipsEl = document.getElementById('leadChips');
+  chipsEl.innerHTML = processed.map((p,i) => '<span class="lead-chip" id="chip-' + i + '">' + (i+1) + '. ' + p.name.split(' ')[0] + '</span>').join('');
+
+  const startIndex = sheetRows.length - processed.length;
+
+  for(let i=0;i<processed.length;i++){
+    const lead = processed[i];
+    const rowIndex = startIndex + i;
+    document.getElementById('chip-' + i).classList.add('running');
+    log('— Processing lead ' + (i+1) + '/' + processed.length + ': ' + lead.name + ' —', 'info');
+
+    // Email Agent
+    setStatus('emailagent','running');
+    setOutput('emailagent', '<div class="typing-dots" style="font-size:20px;color:var(--violet);">Drafting<span>.</span><span>.</span><span>.</span></div>', { status: 'thinking' });
+    document.getElementById('step-emailagent').classList.add('open');
+    await sleep(1100);
+    const draft = draftEmail(lead);
+    setOutput('emailagent',
+      '<div class="kv"><span class="k">subject</span><span class="v">' + escapeHtml(draft.subject) + '</span></div>' +
+      '<pre class="jsonview" style="margin-top:10px; white-space:pre-wrap;">' + escapeHtml(draft.body) + '</pre>',
+      { output: JSON.stringify(draft) });
+    setStatus('emailagent','done'); log('Groq drafted email — "' + draft.subject + '"', 'ok');
+
+    // Parse Email Draft
+    setStatus('parsedraft','running'); await sleep(350);
+    const merged = Object.assign({}, lead, { emailSubject: draft.subject, emailBody: draft.body });
+    setOutput('parsedraft', '<div class="kv"><span class="k">parsed</span><span class="v">subject + body merged onto lead</span></div>', merged);
+    setStatus('parsedraft','done');
+
+    // Send Outreach Email
+    setStatus('sendemail','running'); await sleep(500);
+    setOutput('sendemail',
+      '<div class="kv"><span class="k">to</span><span class="v">' + escapeHtml(lead.email) + '</span>' +
+      '<span class="k">subject</span><span class="v">' + escapeHtml(draft.subject) + '</span></div>',
+      { to: lead.email, subject: draft.subject, body: draft.body });
+    setStatus('sendemail','done'); log('Email sent to ' + lead.email, 'ok');
+
+    // Send LinkedIn Message
+    setStatus('sendli','running'); await sleep(500);
+    const liMsg = draftLinkedInMessage(lead, draft.body);
+    setOutput('sendli',
+      '<div class="kv"><span class="k">profileUrl</span><span class="v">' + escapeHtml(lead.profileUrl) + '</span></div>' +
+      '<pre class="jsonview" style="margin-top:10px; white-space:pre-wrap;">' + escapeHtml(liMsg) + '</pre>' +
+      '<div class="note">⚠ This message is built from the email body\'s first sentence, which itself opens with "Hi ' + escapeHtml(lead.name.split(' ')[0]) + ',". That produces the slightly repeated greeting you see above — a real quirk in this expression, not a demo bug. Worth tightening the HTTP node\'s jsonBody expression if you want a cleaner LinkedIn message.</div>',
+      { profile_url: lead.profileUrl, message: liMsg });
+    setStatus('sendli','done'); log('LinkedIn message sent to ' + lead.name, 'ok');
+
+    // Update Status - Contacted
+    setStatus('updatecontacted','running'); await sleep(400);
+    sheetRows[rowIndex].status = 'Contacted';
+    refreshSheet(); flashRow(rowIndex);
+    setOutput('updatecontacted',
+      '<div class="kv"><span class="k">matched by</span><span class="v">profileUrl</span><span class="k">new status</span><span class="v">Contacted</span></div>',
+      { profileUrl: lead.profileUrl, status: 'Contacted' });
+    setStatus('updatecontacted','done'); log('Sheet row updated → status = Contacted', 'ok');
+
+    document.getElementById('chip-' + i).classList.remove('running');
+    document.getElementById('chip-' + i).classList.add('done');
+    // reset inner loop step statuses briefly before next iteration (visual "reset")
+    if(i < processed.length - 1){
+      await sleep(350);
+      ['emailagent','parsedraft','sendemail','sendli','updatecontacted'].forEach(id=>{
+        document.getElementById('step-' + id).classList.remove('open');
+      });
+    }
+  }
+
+  setStatus('loop','done'); log('Loop finished — all ' + processed.length + ' leads processed', 'ok');
+
+  // All Leads Contacted
+  setStatus('allcontacted','running'); await sleep(400);
+  setOutput('allcontacted', '<div class="kv"><span class="k">leads contacted</span><span class="v">' + processed.length + '</span></div>', { leadsContacted: processed.length });
+  setStatus('allcontacted','done');
+  log('✔ Outreach batch complete — ' + processed.length + ' leads emailed + messaged', 'ok');
+
+  refreshCalLeadOptions();
+  setGlobalStatus('done');
+  document.getElementById('startBtn').disabled = false;
+  running = false;
+}
+
+/* =========================================================================
+   ORCHESTRATION — Lane B (Calendar Confirmation)
+   ========================================================================= */
+
+async function simulateCalendarEvent(){
+  const sel = document.getElementById('cal-lead');
+  const idx = parseInt(sel.value, 10);
+  const qualified = document.getElementById('cal-qualified').checked;
+
+  let lead;
+  if(idx === -1 || isNaN(idx)){
+    lead = { name:'Demo Lead', email:'demo.lead@example.com', phone:'+91 98765 43210', profileUrl:'https://www.linkedin.com/in/demo-lead-0000' };
+  } else {
+    lead = sheetRows[idx];
+  }
+
+  const description = qualified
+    ? 'Meeting booked with ' + lead.name + ' — Qualified Lead. Discuss automation needs.'
+    : 'Meeting booked with ' + lead.name + '. General discussion, not yet qualified.';
+  const meetingTime = new Date(Date.now() + 2*60*60*1000).toISOString();
+
+  // Calendar Trigger
+  setStatus('caltrigger','running'); log('Calendar poll detected a new event', 'info'); await sleep(500);
+  const event = { summary: 'Meeting: ' + lead.name, description, attendees:[{ email: lead.email }], start:{ dateTime: meetingTime } };
+  setOutput('caltrigger', '<div class="kv"><span class="k">summary</span><span class="v">' + escapeHtml(event.summary) + '</span><span class="k">description</span><span class="v">' + escapeHtml(description) + '</span></div>', event);
+  setStatus('caltrigger','done');
+
+  // Is Qualified Meeting?
+  setStatus('isqualified','running'); await sleep(500);
+  setOutput('isqualified', '<div class="kv"><span class="k">condition</span><span class="v">description.includes("Qualified Lead")</span><span class="k">result</span><span class="v">' + qualified + '</span></div>', { result: qualified });
+  setStatus('isqualified','done');
+  log('Is Qualified Meeting? → ' + (qualified ? 'TRUE' : 'FALSE'), qualified ? 'ok' : 'warn');
+
+  if(qualified){
+    setStatus('livekit','running'); log('Queuing LiveKit confirmation call…', 'info'); await sleep(900);
+    setOutput('livekit',
+      '<div class="kv"><span class="k">call to</span><span class="v">' + escapeHtml(lead.phone || '+91 98765 43210') + '</span><span class="k">meeting time</span><span class="v">' + new Date(meetingTime).toLocaleString() + '</span></div>',
+      { attendeeEmail: lead.email, meetingTime, purpose: 'meeting_confirmation' });
+    setStatus('livekit','done'); log('Confirmation call queued for ' + lead.name, 'ok');
+
+    setStatus('updatemeeting','running'); await sleep(400);
+    const rowIdx = sheetRows.findIndex(r => r.email === lead.email);
+    if(rowIdx > -1){ sheetRows[rowIdx].status = 'Meeting Confirmed'; refreshSheet(); flashRow(rowIdx); }
+    setOutput('updatemeeting', '<div class="kv"><span class="k">matched by</span><span class="v">email</span><span class="k">new status</span><span class="v">Meeting Confirmed</span></div>', { email: lead.email, status: 'Meeting Confirmed' });
+    setStatus('updatemeeting','done'); log('Sheet updated → status = Meeting Confirmed', 'ok');
+    setStatus('notqualified','idle'); document.getElementById('body-notqualified').innerHTML = '';
+  } else {
+    setStatus('notqualified','running'); await sleep(500);
+    setOutput('notqualified', '<div class="kv"><span class="k">action</span><span class="v">none — meeting skipped, no confirmation call triggered</span></div>', { skipped: true });
+    setStatus('notqualified','skipped'); log('Meeting not qualified — skipped, no call triggered', 'warn');
+    setStatus('livekit','idle'); document.getElementById('body-livekit').innerHTML = '';
+    setStatus('updatemeeting','idle'); document.getElementById('body-updatemeeting').innerHTML = '';
+  }
+}
+
+/* =========================================================================
+   RESET
+   ========================================================================= */
+function resetDemo(){
+  if(running) return;
+  sheetRows = [];
+  refreshSheet(); refreshCalLeadOptions();
+  document.getElementById('logFeed').innerHTML = '<div class="log-empty">Waiting for a trigger…</div>';
+  setGlobalStatus('idle');
+  [...LANE_A_STEPS, ...LOOP_STEPS, ...LANE_B_STEPS].forEach(s=>{
+    const el = document.getElementById('step-' + s.id);
+    if(el){ el.classList.remove('running','done','skipped','open'); document.getElementById('body-' + s.id).innerHTML=''; }
+  });
+  const dot = document.getElementById('dot-groq'); if(dot) dot.style.background = 'var(--slate)';
+}
+
+initRender();
+</script>
+</body>
+</html>

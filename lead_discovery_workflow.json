@@ -1,0 +1,1675 @@
+{
+  "name": "Lead Discovery Agent - Multi-Source ICP Lead Finder",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "lead-intake",
+        "formTitle": "Lead Discovery Agent - Intake Form",
+        "formDescription": "Enter your company profile, services, and ICP criteria to automatically discover, score, and export qualified leads.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Company Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "defaultValue": "Technewity Labs"
+            },
+            {
+              "fieldLabel": "Industry / Sector",
+              "fieldType": "text",
+              "requiredField": true,
+              "defaultValue": "Software Development & AI Solutions"
+            },
+            {
+              "fieldLabel": "Services Offered",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "defaultValue": "Website Development, AI Solutions & Agents, Custom Software Development, Cloud Infrastructure, and Process Automation"
+            },
+            {
+              "fieldLabel": "Ideal Customer Profile (ICP) Description",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "defaultValue": "India-based B2B companies, startups, founders, SMBs, and agencies looking for professional website development, custom AI implementation, and workflow automation services."
+            },
+            {
+              "fieldLabel": "Target Geography / Location",
+              "fieldType": "text",
+              "requiredField": true,
+              "defaultValue": "India"
+            },
+            {
+              "fieldLabel": "Minimum Composite Score Threshold (0-100)",
+              "fieldType": "number",
+              "defaultValue": "50"
+            },
+            {
+              "fieldLabel": "Max Leads Per Source",
+              "fieldType": "number",
+              "defaultValue": "10"
+            },
+            {
+              "fieldLabel": "Lead Sources to Search",
+              "fieldType": "multiSelect",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Google Maps"
+                  },
+                  {
+                    "option": "Reddit"
+                  },
+                  {
+                    "option": "General Web"
+                  },
+                  {
+                    "option": "LinkedIn"
+                  },
+                  {
+                    "option": "Instagram"
+                  },
+                  {
+                    "option": "Facebook"
+                  },
+                  {
+                    "option": "X/Twitter"
+                  }
+                ]
+              },
+              "defaultValue": [
+                "Google Maps",
+                "Reddit",
+                "General Web",
+                "LinkedIn",
+                "Instagram",
+                "Facebook",
+                "X/Twitter"
+              ]
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "id": "node-form-trigger",
+      "name": "Form Trigger Intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize intake data from smart form trigger\nconst item = $input.first()?.json || {};\n\nconst rawSources = item[\"Lead Sources to Search\"];\nlet sourcesArr = [];\nif (Array.isArray(rawSources)) {\n  sourcesArr = rawSources.map(s => String(s).toLowerCase().trim());\n} else if (typeof rawSources === 'string' && rawSources.length > 0) {\n  sourcesArr = rawSources.split(',').map(s => s.toLowerCase().trim());\n} else {\n  // Default to all sources enabled if unspecified\n  sourcesArr = ['google maps', 'reddit', 'general web', 'linkedin', 'instagram', 'facebook', 'x/twitter', 'x'];\n}\n\nconst minScoreRaw = item[\"Minimum Composite Score Threshold (0-100)\"];\nconst minScoreNum = Number(minScoreRaw);\nconst minScore = isNaN(minScoreNum) ? 50 : Math.min(100, Math.max(0, minScoreNum));\n\nconst maxLeadsRaw = item[\"Max Leads Per Source\"];\nconst maxLeadsNum = Number(maxLeadsRaw);\nconst maxLeads = isNaN(maxLeadsNum) ? 20 : Math.max(1, maxLeadsNum);\n\nreturn [{\n  json: {\n    company_name: item[\"Company Name\"] || '',\n    industry: item[\"Industry / Sector\"] || '',\n    services: item[\"Services Offered\"] || '',\n    icp_description: item[\"Ideal Customer Profile (ICP) Description\"] || '',\n    target_location: item[\"Target Geography / Location\"] || '',\n    min_score: minScore,\n    max_leads: maxLeads,\n    enable_gmaps: sourcesArr.some(s => s.includes('google maps') || s.includes('gmaps') || s === 'maps'),\n    enable_reddit: sourcesArr.some(s => s.includes('reddit')),\n    enable_web: sourcesArr.some(s => s.includes('general web') || s.includes('web') || s.includes('serper')),\n    enable_linkedin: sourcesArr.some(s => s.includes('linkedin')),\n    enable_instagram: sourcesArr.some(s => s.includes('instagram')),\n    enable_facebook: sourcesArr.some(s => s.includes('facebook')),\n    enable_x: sourcesArr.some(s => s.includes('x') || s.includes('twitter'))\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "node-normalize-intake",
+      "name": "Normalize Intake Data"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a structured search plan for lead generation based on the following intake details:\nCompany: {{ $json.company_name }}\nIndustry: {{ $json.industry }}\nServices Offered: {{ $json.services }}\nICP Description: {{ $json.icp_description }}\nTarget Location: {{ $json.target_location }}\n\nFormulate specific keywords, target roles/titles, search queries for Google Maps, target subreddits and search terms for Reddit, search queries for General Web (Serper.dev), and social search keywords.",
+        "options": {
+          "systemMessage": "You are AI Agent #1 (Query Planner). Your task is to analyze the intake company profile and ICP description and generate deterministic search parameters for multiple lead sources.\nOutput MUST adhere strictly to the JSON schema provided."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        440,
+        300
+      ],
+      "id": "node-query-planner-agent",
+      "name": "Query Planner Agent (AI Agent #1)"
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"gmaps_query\": { \"type\": \"string\", \"description\": \"Keyword + location query for Google Maps scraper (e.g. 'Dental Clinics in Austin, TX')\" },\n    \"reddit_subreddits\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"List of relevant subreddits (e.g. ['smallbusiness', 'marketing'])\" },\n    \"reddit_query\": { \"type\": \"string\", \"description\": \"Search query for Reddit posts/comments expressing intent\" },\n    \"web_queries\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"List of 2-3 Google search queries for Serper API\" },\n    \"target_titles\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"List of target job titles\" },\n    \"target_industries\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"List of target industry sectors\" },\n    \"social_keywords\": { \"type\": \"array\", \"items\": { \"type\": \"string\" }, \"description\": \"Keywords for LinkedIn, Instagram, Facebook, X\" }\n  },\n  \"required\": [\"gmaps_query\", \"reddit_subreddits\", \"reddit_query\", \"web_queries\", \"target_titles\", \"social_keywords\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        540,
+        500
+      ],
+      "id": "node-planner-parser",
+      "name": "Structured Output Parser (Planner)"
+    },
+    {
+      "parameters": {
+        "options": {},
+        "modelName": "llama-3.3-70b-versatile",
+        "model": "llama-3.3-70b-versatile"
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        340,
+        500
+      ],
+      "id": "node-planner-llm",
+      "name": "Groq LLM Model (Planner)",
+      "credentials": {
+        "groqApi": {
+          "id": "dKMppIPD6ChsBL0h",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare execution variables and fallback defaults from Query Planner output\nconst intake = $(\"Normalize Intake Data\").first().json;\nconst plannerOutput = $input.first()?.json?.output || $input.first()?.json || {};\n\nconst rawWebQueries = plannerOutput.web_queries || [`\"looking for\" ${intake.services} ${intake.target_location}`, `top ${intake.industry} companies in ${intake.target_location}`];\nconst cappedWebQueries = rawWebQueries.slice(0, 3);\n\nreturn [{\n  json: {\n    intake,\n    search_plan: {\n      gmaps_query: plannerOutput.gmaps_query || `${intake.industry} in ${intake.target_location}`,\n      reddit_subreddits: plannerOutput.reddit_subreddits || [\"smallbusiness\", \"entrepreneur\"],\n      reddit_query: plannerOutput.reddit_query || intake.industry,\n      web_queries: cappedWebQueries,\n      target_titles: plannerOutput.target_titles || [\"CEO\", \"Founder\", \"Owner\", \"Director\"],\n      target_industries: plannerOutput.target_industries || [intake.industry],\n      social_keywords: plannerOutput.social_keywords || [intake.industry, intake.services]\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "id": "node-prepare-search-params",
+      "name": "Prepare Search Parameters"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-gmaps",
+              "leftValue": "={{ $json.intake.enable_gmaps === true || ['yes','true','1'].includes(String($json.intake.enable_gmaps).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        -150
+      ],
+      "id": "node-if-gmaps",
+      "name": "IF Google Maps Enabled"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/places",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": \"{{ $json.search_plan.gmaps_query }}\",\n  \"num\": {{ $(\"Normalize Intake Data\").first().json.max_leads || 20 }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        -150
+      ],
+      "id": "node-gmaps-scraper-api",
+      "name": "Google Maps Search (Serper Places API)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "hbrtjEqjNM7wRJmr",
+          "name": "Serper API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-reddit",
+              "leftValue": "={{ $json.intake.enable_reddit === true || ['yes','true','1'].includes(String($json.intake.enable_reddit).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        50
+      ],
+      "id": "node-if-reddit",
+      "name": "IF Reddit Enabled"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://www.reddit.com/search.json?q={{ encodeURIComponent($json.search_plan.reddit_query) }}&sort=relevance&limit={{ $(\"Normalize Intake Data\").first().json.max_leads || 20 }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-LeadDiscoveryAgent/1.0 (by /u/lead_finder_bot)"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        50
+      ],
+      "id": "node-reddit-api",
+      "name": "Reddit Official REST API"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-web",
+              "leftValue": "={{ $json.intake.enable_web === true || ['yes','true','1'].includes(String($json.intake.enable_web).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        250
+      ],
+      "id": "node-if-web",
+      "name": "IF Web Search Enabled"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "search_plan.web_queries",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        250
+      ],
+      "id": "node-split-web-queries",
+      "name": "Split Web Queries"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"q\": \"{{ $json.value || $json }}\",\n  \"num\": {{ $(\"Normalize Intake Data\").first().json.max_leads || 20 }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        250
+      ],
+      "id": "node-serper-web-api",
+      "name": "General Web Search (Serper.dev)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "hbrtjEqjNM7wRJmr",
+          "name": "Serper API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1.5,
+        "unit": "seconds"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        250
+      ],
+      "id": "node-wait-web-searches",
+      "name": "Wait Between Web Searches"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-linkedin",
+              "leftValue": "={{ $json.intake.enable_linkedin === true || ['yes','true','1'].includes(String($json.intake.enable_linkedin).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        450
+      ],
+      "id": "node-if-linkedin",
+      "name": "IF LinkedIn Enabled"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_APIFY_LINKEDIN_ACTOR_ID/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"searchQueries\": $json.search_plan.social_keywords, \"maxItems\": $(\"Normalize Intake Data\").first().json.max_leads || 20 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        450
+      ],
+      "id": "node-apify-linkedin",
+      "name": "Apify - Scrape LinkedIn Profiles",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "apify-api-cred-id",
+          "name": "Apify API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-instagram",
+              "leftValue": "={{ $json.intake.enable_instagram === true || ['yes','true','1'].includes(String($json.intake.enable_instagram).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        650
+      ],
+      "id": "node-if-instagram",
+      "name": "IF Instagram Enabled"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_APIFY_INSTAGRAM_ACTOR_ID/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"searchQueries\": $json.search_plan.social_keywords, \"maxItems\": $(\"Normalize Intake Data\").first().json.max_leads || 20 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        650
+      ],
+      "id": "node-apify-instagram",
+      "name": "Apify - Scrape Instagram Profiles",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "apify-api-cred-id",
+          "name": "Apify API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-facebook",
+              "leftValue": "={{ $json.intake.enable_facebook === true || ['yes','true','1'].includes(String($json.intake.enable_facebook).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        850
+      ],
+      "id": "node-if-facebook",
+      "name": "IF Facebook Enabled"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_APIFY_FACEBOOK_ACTOR_ID/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"searchQueries\": $json.search_plan.social_keywords, \"maxItems\": $(\"Normalize Intake Data\").first().json.max_leads || 20 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        850
+      ],
+      "id": "node-apify-facebook",
+      "name": "Apify - Scrape Facebook Profiles",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "apify-api-cred-id",
+          "name": "Apify API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-x",
+              "leftValue": "={{ $json.intake.enable_x === true || ['yes','true','1'].includes(String($json.intake.enable_x).toLowerCase().trim()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        900,
+        1050
+      ],
+      "id": "node-if-x",
+      "name": "IF X Enabled"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/YOUR_APIFY_X_ACTOR_ID/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"searchQueries\": $json.search_plan.social_keywords, \"maxItems\": $(\"Normalize Intake Data\").first().json.max_leads || 20 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        1050
+      ],
+      "id": "node-apify-x",
+      "name": "Apify - Scrape X/Twitter Profiles",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "apify-api-cred-id",
+          "name": "Apify API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1740,
+        450
+      ],
+      "id": "node-merge-sources",
+      "name": "Merge Enabled Sources"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect error reports from external HTTP Request node failures\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.sourceErrors) {\n  staticData.sourceErrors = [];\n}\n\nconst items = $input.all();\nfor (const item of items) {\n  const sourceName = $prevNode?.name || item.json?.sourceName || 'External API';\n  const errObj = item.json?.error || item.json;\n  const errMsg = errObj?.message || (typeof errObj === 'string' ? errObj : JSON.stringify(errObj));\n  \n  staticData.sourceErrors.push({\n    source: sourceName,\n    error: errMsg,\n    timestamp: new Date().toISOString()\n  });\n}\n\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        1200
+      ],
+      "id": "node-collect-source-errors",
+      "name": "Collect Source Errors"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalization Node: Map heterogeneous source results into uniform Lead objects\nconst leads = [];\nconst items = $input.all();\n\nfor (const item of items) {\n  const json = item.json;\n  if (!json || Object.keys(json).length === 0) continue;\n\n  // 1. Serper Places (Google Maps) items\n  if (json.places && Array.isArray(json.places)) {\n    for (const p of json.places) {\n      let domain = '';\n      if (p.website) {\n        try {\n          domain = new URL(p.website.startsWith('http') ? p.website : 'http://' + p.website).hostname.replace(/^www\\./, '');\n        } catch (e) {\n          domain = p.website;\n        }\n      }\n      leads.push({\n        name: p.title || 'Unknown Business',\n        title: 'Business Owner / Executive',\n        company: p.title || '',\n        company_domain: domain,\n        platform: 'Google Maps',\n        profile_url: p.website || '',\n        location: p.address || '',\n        snippet: `${p.category || ''} - Phone: ${p.phoneNumber || 'N/A'} - Rating: ${p.rating || 'N/A'} (${p.ratingCount || 0} reviews)`,\n        source: 'Serper Places API',\n        discovered_at: new Date().toISOString()\n      });\n    }\n  }\n  // 2. Reddit items\n  else if (json.kind === 'Listing' || (json.data && json.data.children)) {\n    const posts = json.data?.children || [];\n    for (const post of posts) {\n      const p = post.data || {};\n      leads.push({\n        name: p.author || 'Reddit User',\n        title: 'Community Member / Decision Maker',\n        company: p.subreddit_name_prefixed || 'Reddit',\n        company_domain: 'reddit.com',\n        platform: 'Reddit',\n        profile_url: `https://reddit.com${p.permalink || ''}`,\n        location: 'Global / Online',\n        snippet: `[${p.title}] ${(p.selftext || '').slice(0, 200)}`,\n        source: 'Reddit Search API',\n        discovered_at: new Date().toISOString()\n      });\n    }\n  }\n  // 3. Serper / Web Search items\n  else if (json.organic && Array.isArray(json.organic)) {\n    for (const res of json.organic) {\n      let domain = '';\n      try {\n        domain = new URL(res.link).hostname.replace(/^www\\./, '');\n      } catch (e) {\n        domain = '';\n      }\n      leads.push({\n        name: res.title ? res.title.split('-')[0].trim() : 'Web Lead',\n        title: 'Executive / Decision Maker',\n        company: res.title ? (res.title.split('-')[1] || domain).trim() : domain,\n        company_domain: domain,\n        platform: 'General Web',\n        profile_url: res.link || '',\n        location: 'Web',\n        snippet: res.snippet || '',\n        source: 'Serper.dev Web Search',\n        discovered_at: new Date().toISOString()\n      });\n    }\n  }\n  // 4. LinkedIn items\n  else if (json.profileUrl || json.fullName || (json.platform === 'LinkedIn') || (json.url && json.url.includes('linkedin.com'))) {\n    leads.push({\n      name: json.fullName || json.name || json.full_name || 'LinkedIn Prospect',\n      title: json.headline || json.title || json.designation || 'Target Prospect',\n      company: json.companyName || json.company || '',\n      company_domain: json.domain || json.companyDomain || '',\n      platform: 'LinkedIn',\n      profile_url: json.profileUrl || json.url || json.profile_url || '',\n      location: json.location || json.country || '',\n      snippet: json.summary || json.snippet || json.headline || '',\n      source: 'Apify LinkedIn Actor',\n      discovered_at: new Date().toISOString()\n    });\n  }\n  // 5. Instagram items\n  else if (json.instagramUrl || json.username || (json.platform === 'Instagram') || (json.url && json.url.includes('instagram.com'))) {\n    leads.push({\n      name: json.fullName || json.name || json.username || 'Instagram Lead',\n      title: 'Content Creator / Brand Owner',\n      company: json.businessName || json.company || json.username || '',\n      company_domain: json.website || '',\n      platform: 'Instagram',\n      profile_url: json.url || json.profileUrl || (json.username ? `https://instagram.com/${json.username}` : ''),\n      location: json.location || '',\n      snippet: json.biography || json.snippet || '',\n      source: 'Apify Instagram Actor',\n      discovered_at: new Date().toISOString()\n    });\n  }\n  // 6. Facebook items\n  else if (json.facebookUrl || (json.platform === 'Facebook') || json.pageName || (json.url && json.url.includes('facebook.com'))) {\n    leads.push({\n      name: json.pageName || json.name || json.fullName || 'Facebook Business',\n      title: 'Business Page / Founder',\n      company: json.pageName || json.company || '',\n      company_domain: json.website || '',\n      platform: 'Facebook',\n      profile_url: json.url || json.profileUrl || '',\n      location: json.address || json.location || '',\n      snippet: json.about || json.snippet || '',\n      source: 'Apify Facebook Actor',\n      discovered_at: new Date().toISOString()\n    });\n  }\n  // 7. X / Twitter items\n  else if (json.twitterUrl || json.twitterHandle || (json.platform === 'X') || (json.platform === 'Twitter') || json.screen_name || (json.url && (json.url.includes('twitter.com') || json.url.includes('x.com')))) {\n    leads.push({\n      name: json.name || json.screen_name || 'X User',\n      title: 'Industry Professional',\n      company: json.company || json.screen_name || '',\n      company_domain: json.url || '',\n      platform: 'X/Twitter',\n      profile_url: json.profile_url || json.url || (json.screen_name ? `https://x.com/${json.screen_name}` : ''),\n      location: json.location || '',\n      snippet: json.description || json.snippet || '',\n      source: 'Apify X Actor',\n      discovered_at: new Date().toISOString()\n    });\n  }\n  // Fallback for single or array profile objects\n  else {\n    const list = Array.isArray(json) ? json : [json];\n    for (const p of list) {\n      if (typeof p === 'object' && p !== null) {\n        leads.push({\n          name: p.name || p.fullName || p.full_name || 'Social Lead',\n          title: p.title || p.headline || 'Target Prospect',\n          company: p.company || p.companyName || '',\n          company_domain: p.domain || p.company_domain || '',\n          platform: p.platform || 'Social Media',\n          profile_url: p.profile_url || p.profileUrl || p.url || '',\n          location: p.location || '',\n          snippet: p.snippet || p.bio || p.summary || '',\n          source: p.source || 'Apify Social Scraper',\n          discovered_at: new Date().toISOString()\n        });\n      }\n    }\n  }\n}\n\nreturn leads.map(l => ({ json: l }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        450
+      ],
+      "id": "node-normalize-leads",
+      "name": "Normalize Leads Schema"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Inline Levenshtein distance string similarity function\nfunction levenshteinDistance(a, b) {\n  if (!a || !b) return 0;\n  const matrix = [];\n  for (let i = 0; i <= b.length; i++) matrix[i] = [i];\n  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;\n  for (let i = 1; i <= b.length; i++) {\n    for (let j = 1; j <= a.length; j++) {\n      if (b.charAt(i - 1) === a.charAt(j - 1)) {\n        matrix[i][j] = matrix[i - 1][j - 1];\n      } else {\n        matrix[i][j] = Math.min(\n          matrix[i - 1][j - 1] + 1,\n          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)\n        );\n      }\n    }\n  }\n  const maxLen = Math.max(a.length, b.length);\n  return maxLen === 0 ? 1 : 1 - matrix[b.length][a.length] / maxLen;\n}\n\n// Identity Resolution & Deduplication Logic\nconst items = $input.all().map(i => i.json);\nconst deduplicated = [];\n\nfor (const lead of items) {\n  let isDuplicate = false;\n  \n  for (const existing of deduplicated) {\n    if (lead.profile_url && existing.profile_url && lead.profile_url === existing.profile_url) {\n      isDuplicate = true;\n      break;\n    }\n    if (lead.company_domain && existing.company_domain && lead.company_domain === existing.company_domain) {\n      const nameSimilarity = levenshteinDistance(\n        (lead.name || '').toLowerCase().trim(),\n        (existing.name || '').toLowerCase().trim()\n      );\n      if (nameSimilarity > 0.85) {\n        isDuplicate = true;\n        existing.snippet += ` | ${lead.snippet}`;\n        break;\n      }\n    }\n  }\n  \n  if (!isDuplicate) {\n    deduplicated.push(lead);\n  }\n}\n\nreturn deduplicated.map(d => ({ json: d }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        450
+      ],
+      "id": "node-deduplicate-leads",
+      "name": "Deduplicate Leads (Identity Resolution)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hunter.io/v2/email-finder?domain={{ encodeURIComponent($json.company_domain) }}&full_name={{ encodeURIComponent($json.name) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 4000,
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        450
+      ],
+      "id": "node-enrich-hunter-io",
+      "name": "Enrich Email (Hunter.io API)",
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "Lo9ruGsRxOBZDj9r",
+          "name": "Hunter.io API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Attach enriched email and calculate Rule-Based Pre-Score (0-100)\nconst item = $input.first()?.json || {};\nconst lead = $(\"Deduplicate Leads (Identity Resolution)\").first()?.json || item;\nconst hunterData = item.data || {};\n\nconst verifiedEmail = hunterData.email || lead.email || 'N/A';\nconst emailScore = hunterData.score || 0;\n\nlet ruleScore = 40;\nif (verifiedEmail !== 'N/A') ruleScore += 20;\nif (emailScore > 70) ruleScore += 15;\nif (lead.company_domain && lead.company_domain.length > 3) ruleScore += 15;\n\nconst titleLower = (lead.title || '').toLowerCase();\nif (titleLower.includes('ceo') || titleLower.includes('founder') || titleLower.includes('owner') || titleLower.includes('director') || titleLower.includes('vp')) {\n  ruleScore += 10;\n}\n\nruleScore = Math.min(100, ruleScore);\n\nreturn [{\n  json: {\n    ...lead,\n    email: verifiedEmail,\n    email_confidence: emailScore,\n    rule_score: ruleScore\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        450
+      ],
+      "id": "node-rule-prescore",
+      "name": "Rule-Based Pre-Score"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Evaluate the fit of this lead against our Ideal Customer Profile (ICP):\n\n--- LEAD DATA ---\nName: {{ $json.name }}\nTitle: {{ $json.title }}\nCompany: {{ $json.company }}\nIndustry / Sector: {{ $json.industry || $json.company_domain }}\nLocation: {{ $json.location }}\nPlatform / Source: {{ $json.platform }}\nSnippet / Bio: {{ $json.snippet }}\nVerified Email: {{ $json.email }}\n\n--- OUR ICP & OFFERING ---\nServices Offered: {{ $(\"Normalize Intake Data\").first().json.services }}\nICP Description: {{ $(\"Normalize Intake Data\").first().json.icp_description }}\nTarget Location: {{ $(\"Normalize Intake Data\").first().json.target_location }}\n\nProvide an LLM score from 0 to 100 on how likely this prospect is to need our services, along with a concise 1-sentence explanation why matched.",
+        "options": {
+          "systemMessage": "You are AI Agent #2 (Scoring Agent). Your job is to strictly evaluate lead relevance against the company's Ideal Customer Profile (ICP). Output MUST follow the JSON schema."
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2840,
+        450
+      ],
+      "id": "node-scoring-agent",
+      "name": "Scoring Agent (AI Agent #2)"
+    },
+    {
+      "parameters": {
+        "jsonSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"llm_score\": { \"type\": \"number\", \"description\": \"LLM match score from 0 to 100\" },\n    \"why_matched\": { \"type\": \"string\", \"description\": \"Concise 1-sentence reason explaining why this lead matches the ICP\" }\n  },\n  \"required\": [\"llm_score\", \"why_matched\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        2940,
+        650
+      ],
+      "id": "node-scorer-parser",
+      "name": "Structured Output Parser (Scorer)"
+    },
+    {
+      "parameters": {
+        "options": {},
+        "modelName": "llama-3.3-70b-versatile",
+        "model": "llama-3.3-70b-versatile"
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2740,
+        650
+      ],
+      "id": "node-scorer-llm",
+      "name": "Groq LLM Model (Scorer)",
+      "credentials": {
+        "groqApi": {
+          "id": "dKMppIPD6ChsBL0h",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate final 0-100 composite score (40% Rule + 60% LLM) and merge reasons\nconst lead = $(\"Rule-Based Pre-Score\").first()?.json || {};\nconst scorerOutput = $input.first()?.json?.output || $input.first()?.json || {};\n\nconst llmScore = typeof scorerOutput.llm_score === 'number' ? scorerOutput.llm_score : 50;\nconst whyMatched = scorerOutput.why_matched || 'Lead matched ICP target criteria and keyword signals.';\n\nconst ruleScore = lead.rule_score || 40;\nconst compositeScore = Math.round((ruleScore * 0.4) + (llmScore * 0.6));\n\nreturn [{\n  json: {\n    ...lead,\n    llm_score: llmScore,\n    composite_score: compositeScore,\n    why_matched: whyMatched\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        450
+      ],
+      "id": "node-combine-scores",
+      "name": "Combine Composite Score"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort leads by composite_score in descending order (highest score first)\nreturn items.sort((a, b) => {\n  const scoreA = Number(a.json?.composite_score) || Number(a.json?.rule_score) || 0;\n  const scoreB = Number(b.json?.composite_score) || Number(b.json?.rule_score) || 0;\n  return scoreB - scoreA;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        450
+      ],
+      "id": "node-rank-leads",
+      "name": "Rank Leads (Sort Descending)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-score-threshold",
+              "leftValue": "={{ $json.composite_score }}",
+              "rightValue": "={{ $(\"Normalize Intake Data\").first().json.min_score || 50 }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        3520,
+        450
+      ],
+      "id": "node-filter-quality-leads",
+      "name": "Filter Quality Leads Threshold"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1vOP6GX4ShQq1f5Msb7HgCuCgGI9M8qkOsPYwcx0P6hI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3740,
+        300
+      ],
+      "id": "node-fetch-existing-sheet-leads",
+      "name": "Fetch Existing Sheet Leads",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xO5shXPlrhQDn50g",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Identity Resolution helper matching new discovery leads against existing Google Sheet records\nfunction levenshteinDistance(a, b) {\n  if (!a || !b) return 0;\n  const matrix = [];\n  for (let i = 0; i <= b.length; i++) matrix[i] = [i];\n  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;\n  for (let i = 1; i <= b.length; i++) {\n    for (let j = 1; j <= a.length; j++) {\n      if (b.charAt(i - 1) === a.charAt(j - 1)) {\n        matrix[i][j] = matrix[i - 1][j - 1];\n      } else {\n        matrix[i][j] = Math.min(\n          matrix[i - 1][j - 1] + 1,\n          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)\n        );\n      }\n    }\n  }\n  const maxLen = Math.max(a.length, b.length);\n  return maxLen === 0 ? 1 : 1 - matrix[b.length][a.length] / maxLen;\n}\n\nconst newLeads = $(\"Filter Quality Leads Threshold\").all().map(i => i.json).filter(l => l && (l.name || l.title || l.company));\nconst rawSheetItems = $input.all().map(i => i.json);\n\n// Filter out empty placeholder items ({}) from alwaysOutputData\nconst existingSheetItems = rawSheetItems.filter(i => i && (i['Profile URL'] || i.profile_url || i['Name'] || i.name || i['Company'] || i.company));\n\nconst uniqueLeads = [];\nfor (const lead of newLeads) {\n  let isDup = false;\n  for (const existing of existingSheetItems) {\n    const existingUrl = existing['Profile URL'] || existing.profile_url || '';\n    const existingCompany = existing['Company'] || existing.company || '';\n    const existingName = existing['Name'] || existing.name || '';\n\n    if (lead.profile_url && existingUrl && lead.profile_url === existingUrl) {\n      isDup = true;\n      break;\n    }\n    if (lead.company && existingCompany && lead.company.toLowerCase().trim() === existingCompany.toLowerCase().trim()) {\n      const sim = levenshteinDistance(\n        (lead.name || '').toLowerCase().trim(),\n        existingName.toLowerCase().trim()\n      );\n      if (sim > 0.85) {\n        isDup = true;\n        break;\n      }\n    }\n  }\n  if (!isDup) {\n    uniqueLeads.push(lead);\n  }\n}\n\n// Return formatted objects with exact Google Sheet header keys\nreturn uniqueLeads.map(l => ({\n  json: {\n    ...l,\n    \"Name\": l.name || '',\n    \"Title\": l.title || '',\n    \"Company\": l.company || '',\n    \"Industry\": l.company_domain || l.industry || '',\n    \"Platform\": l.platform || '',\n    \"Profile URL\": l.profile_url || '',\n    \"Email\": l.email || '',\n    \"Location\": l.location || '',\n    \"Score\": l.composite_score || l.rule_score || 0,\n    \"Why Matched\": l.why_matched || '',\n    \"Source\": l.source || '',\n    \"Discovered At\": l.discovered_at || new Date().toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        300
+      ],
+      "id": "node-filter-dup-sheet-leads",
+      "name": "Filter Duplicate Sheet Leads"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1vOP6GX4ShQq1f5Msb7HgCuCgGI9M8qkOsPYwcx0P6hI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4180,
+        300
+      ],
+      "id": "node-export-google-sheets",
+      "name": "Export to Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xO5shXPlrhQDn50g",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1vOP6GX4ShQq1f5Msb7HgCuCgGI9M8qkOsPYwcx0P6hI",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Run Log",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4400,
+        300
+      ],
+      "id": "node-log-execution-run",
+      "name": "Log Execution Run",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xO5shXPlrhQDn50g",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-has-leads",
+              "leftValue": "={{ $(\"Filter Quality Leads Threshold\").all().length }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3740,
+        550
+      ],
+      "id": "node-if-qualified-leads",
+      "name": "IF Qualified Leads Found"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map lead discovery schema into LinkedIn Outreach Agent input format\nconst leads = $(\"Filter Quality Leads Threshold\").all().map(i => i.json);\nconst intake = $(\"Normalize Intake Data\").first().json;\n\nreturn leads.map(lead => ({\n  json: {\n    name: lead.name || '',\n    designation: lead.title || '',\n    company: lead.company || '',\n    location: lead.location || intake.target_location || '',\n    profileUrl: lead.profile_url || '',\n    email: lead.email || '',\n    phone: '',\n    country: intake.target_location || '',\n    status: 'New',\n    addedAt: lead.discovered_at || new Date().toISOString()\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        550
+      ],
+      "id": "node-map-outreach-schema",
+      "name": "Map to Outreach Schema"
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "IuyQgl6TIJta9GpB",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Outreach Agent"
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [
+        4180,
+        550
+      ],
+      "id": "node-trigger-outreach-workflow",
+      "name": "Trigger LinkedIn Outreach Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check for workflow source errors or zero leads condition\nconst staticData = $getWorkflowStaticData('global');\nconst sourceErrors = staticData.sourceErrors || [];\nconst totalLeads = $(\"Normalize Leads Schema\").all().length;\nconst passedLeads = $(\"Filter Quality Leads Threshold\").all().length;\n\nconst hasErrors = sourceErrors.length > 0;\nconst zeroLeads = totalLeads === 0;\n\nif (hasErrors || zeroLeads) {\n  const errSummary = sourceErrors.length > 0\n    ? sourceErrors.map(e => `\u2022 ${e.source}: ${e.error}`).join('\\n')\n    : 'No explicit API errors, but 0 total leads were returned across all enabled sources.';\n\n  return [{\n    json: {\n      send_alert: true,\n      timestamp: new Date().toISOString(),\n      company_name: $(\"Normalize Intake Data\").first()?.json?.company_name || 'N/A',\n      total_leads: totalLeads,\n      passed_leads: passedLeads,\n      errors_summary: errSummary\n    }\n  }];\n}\n\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        800
+      ],
+      "id": "node-check-execution-failures",
+      "name": "Check Execution Failures"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-should-alert",
+              "leftValue": "={{ $json.send_alert }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3960,
+        800
+      ],
+      "id": "node-if-failure-alert",
+      "name": "IF Failure Alert Needed"
+    },
+    {
+      "parameters": {
+        "sendTo": "admin@company.com",
+        "subject": "=\u26a0\ufe0f Lead Discovery run had failures \u2014 {{ $json.total_leads }} leads found",
+        "message": "=Lead Discovery Workflow Run Alert\n\nTimestamp: {{ $json.timestamp }}\nCompany: {{ $json.company_name }}\nTotal Raw Leads Discovered: {{ $json.total_leads }}\nQualified Leads Passed: {{ $json.passed_leads }}\n\n--- FAILURES / ISSUES LOGGED ---\n{{ $json.errors_summary }}\n\nPlease inspect the n8n execution log and Google Sheets 'Run Log' tab for full details.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        4180,
+        800
+      ],
+      "id": "node-send-failure-alert-email",
+      "name": "Send Failure Alert Email"
+    },
+    {
+      "parameters": {
+        "content": "## \u26a0\ufe0f n8n Setup Status\n\n- \u2705 **Reddit REST API**: Configured with Option 1 (Public Endpoint + User-Agent + 3x Retry/Backoff - No API key needed!)\n- \u2705 **Serper API** (`httpHeaderAuth`): Configured from .env file\n- \u2705 **Hunter.io API** (`httpQueryAuth`): Configured from .env file\n- \u2705 **Groq Primary** (`Groq account`): Linked\n- \u2705 **Groq Secondary** (`Groq account 2`): Linked\n- \u23f3 **Apify API** (`httpQueryAuth`): Token needed from apify.com\n- \u23f3 **Gmail** (`gmailOAuth2`): Connect account in n8n Credentials UI"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -150
+      ],
+      "id": "node-credentials-notice",
+      "name": "Setup & Credentials Notice"
+    }
+  ],
+  "connections": {
+    "Form Trigger Intake": {
+      "main": [
+        [
+          {
+            "node": "Normalize Intake Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Intake Data": {
+      "main": [
+        [
+          {
+            "node": "Query Planner Agent (AI Agent #1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq LLM Model (Planner)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Query Planner Agent (AI Agent #1)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser (Planner)": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Query Planner Agent (AI Agent #1)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Planner Agent (AI Agent #1)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Search Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Search Parameters": {
+      "main": [
+        [
+          {
+            "node": "IF Google Maps Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Reddit Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Web Search Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF LinkedIn Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Instagram Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Facebook Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF X Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Google Maps Enabled": {
+      "main": [
+        [
+          {
+            "node": "Google Maps Search (Serper Places API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Maps Search (Serper Places API)": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Reddit Enabled": {
+      "main": [
+        [
+          {
+            "node": "Reddit Official REST API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit Official REST API": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Web Search Enabled": {
+      "main": [
+        [
+          {
+            "node": "Split Web Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Web Queries": {
+      "main": [
+        [
+          {
+            "node": "General Web Search (Serper.dev)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "General Web Search (Serper.dev)": {
+      "main": [
+        [
+          {
+            "node": "Wait Between Web Searches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Between Web Searches": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "IF LinkedIn Enabled": {
+      "main": [
+        [
+          {
+            "node": "Apify - Scrape LinkedIn Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Scrape LinkedIn Profiles": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 3
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Instagram Enabled": {
+      "main": [
+        [
+          {
+            "node": "Apify - Scrape Instagram Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Scrape Instagram Profiles": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 4
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Facebook Enabled": {
+      "main": [
+        [
+          {
+            "node": "Apify - Scrape Facebook Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Scrape Facebook Profiles": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 5
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF X Enabled": {
+      "main": [
+        [
+          {
+            "node": "Apify - Scrape X/Twitter Profiles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Scrape X/Twitter Profiles": {
+      "main": [
+        [
+          {
+            "node": "Merge Enabled Sources",
+            "type": "main",
+            "index": 6
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Enabled Sources": {
+      "main": [
+        [
+          {
+            "node": "Normalize Leads Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Leads Schema": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate Leads (Identity Resolution)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate Leads (Identity Resolution)": {
+      "main": [
+        [
+          {
+            "node": "Enrich Email (Hunter.io API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich Email (Hunter.io API)": {
+      "main": [
+        [
+          {
+            "node": "Rule-Based Pre-Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Source Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rule-Based Pre-Score": {
+      "main": [
+        [
+          {
+            "node": "Scoring Agent (AI Agent #2)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq LLM Model (Scorer)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scoring Agent (AI Agent #2)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser (Scorer)": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Scoring Agent (AI Agent #2)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scoring Agent (AI Agent #2)": {
+      "main": [
+        [
+          {
+            "node": "Combine Composite Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Composite Score": {
+      "main": [
+        [
+          {
+            "node": "Rank Leads (Sort Descending)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rank Leads (Sort Descending)": {
+      "main": [
+        [
+          {
+            "node": "Filter Quality Leads Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Quality Leads Threshold": {
+      "main": [
+        [
+          {
+            "node": "Fetch Existing Sheet Leads",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Qualified Leads Found",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Execution Failures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Existing Sheet Leads": {
+      "main": [
+        [
+          {
+            "node": "Filter Duplicate Sheet Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filter Duplicate Sheet Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Duplicate Sheet Leads": {
+      "main": [
+        [
+          {
+            "node": "Export to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Log Execution Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Qualified Leads Found": {
+      "main": [
+        [
+          {
+            "node": "Map to Outreach Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map to Outreach Schema": {
+      "main": [
+        [
+          {
+            "node": "Trigger LinkedIn Outreach Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Execution Failures": {
+      "main": [
+        [
+          {
+            "node": "IF Failure Alert Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Failure Alert Needed": {
+      "main": [
+        [
+          {
+            "node": "Send Failure Alert Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
