@@ -161,7 +161,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        1500,
+        1600,
         300
       ],
       "credentials": {
@@ -170,6 +170,19 @@
           "name": "Google Sheets account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Retrieve original lead data from Parse Email Draft node\nconst originalLead = $('Parse Email Draft').item.json || {};\nconst verifiedEmail = originalLead.Email || originalLead.email || '';\n\nreturn [{\n  json: {\n    \"Name\": originalLead.Name || originalLead.name || '',\n    \"Email\": verifiedEmail,\n    \"email\": verifiedEmail,\n    \"Status\": \"Contacted\",\n    \"Contacted At\": new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-prepare-status-update",
+      "name": "Prepare Status Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
     }
   ],
   "connections": {
@@ -252,6 +265,17 @@
       ]
     },
     "Send Outreach Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Status Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Update": {
       "main": [
         [
           {
